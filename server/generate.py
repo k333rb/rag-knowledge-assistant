@@ -49,9 +49,14 @@ Answer:"""
     else:
         answer_text = response.content
 
-    # Returns both the answer and which sources it was grounded in,
-    # so the user can verify where the answer actually came from
-    sources = list(set(doc.metadata.get("source") for doc in results))
+    # Only attach sources if the model actually found an answer,
+    # showing sources alongside an "I don't know" response is
+    # misleading, since the retrieved chunks weren't actually relevant
+    if "I don't have enough information" in answer_text:
+        sources = []
+    else:
+        sources = list(set(doc.metadata.get("source") for doc in results))
+
     return {"answer": answer_text, "sources": sources}
 
 

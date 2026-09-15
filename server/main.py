@@ -2,8 +2,17 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from generate import answer_question
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Allows the React frontend, running on a different port, to call this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
