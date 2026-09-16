@@ -11,20 +11,25 @@ def make_fake_doc(content, source):
     doc.metadata = {"source": source}
     return doc
 
+# Patches the getter functions, not vectorstore/llm directly, since
+# those are only created inside answer_question now, not at import
 
-@patch("generate.llm")
-@patch("generate.vectorstore")
-def test_returns_answer_and_sources_when_answer_found(mock_vectorstore, mock_llm):
-    # Sets up fake retrieved chunks
+
+@patch("generate.get_llm")
+@patch("generate.get_vectorstore")
+def test_returns_answer_and_sources_when_answer_found(mock_get_vectorstore, mock_get_llm):
+    mock_vectorstore = MagicMock()
     mock_vectorstore.similarity_search.return_value = [
         make_fake_doc("You can set the default to None.",
                       "docs/query-params.md")
     ]
+    mock_get_vectorstore.return_value = mock_vectorstore
 
-    # Sets up a fake LLM response, plain string form
+    mock_llm = MagicMock()
     mock_response = MagicMock()
     mock_response.content = "You can make it optional by setting the default to None."
     mock_llm.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
 
     result = answer_question("How do I make a query parameter optional?")
 
@@ -32,39 +37,46 @@ def test_returns_answer_and_sources_when_answer_found(mock_vectorstore, mock_llm
     assert result["sources"] == ["docs/query-params.md"]
 
 
-@patch("generate.llm")
-@patch("generate.vectorstore")
-def test_hides_sources_when_answer_not_found(mock_vectorstore, mock_llm):
+@patch("generate.get_llm")
+@patch("generate.get_vectorstore")
+def test_hides_sources_when_answer_not_found(mock_get_vectorstore, mock_get_llm):
+    mock_vectorstore = MagicMock()
     mock_vectorstore.similarity_search.return_value = [
         make_fake_doc("Unrelated content about query parameters.",
                       "docs/query-params.md")
     ]
+    mock_get_vectorstore.return_value = mock_vectorstore
 
+    mock_llm = MagicMock()
     mock_response = MagicMock()
     mock_response.content = "I don't have enough information to answer that."
     mock_llm.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
 
     result = answer_question("How do I deploy to AWS?")
 
-    # This is the exact bug you caught and fixed, worth locking in permanently
+    # Locks in the real bug caught earlier, sources must stay empty here
     assert result["sources"] == []
 
 
-@patch("generate.llm")
-@patch("generate.vectorstore")
-def test_extracts_text_from_list_response_format(mock_vectorstore, mock_llm):
+@patch("generate.get_llm")
+@patch("generate.get_vectorstore")
+def test_extracts_text_from_list_response_format(mock_get_vectorstore, mock_get_llm):
+    mock_vectorstore = MagicMock()
     mock_vectorstore.similarity_search.return_value = [
         make_fake_doc("Some content.", "docs/first-steps.md")
     ]
+    mock_get_vectorstore.return_value = mock_vectorstore
 
-    # Simulates the newer SDK response shape, a list of content blocks
-    # rather than a plain string, this is the exact bug encountered earlier
+    # Simulates the newer SDK response shape that caused a real bug earlier
+    mock_llm = MagicMock()
     mock_response = MagicMock()
     mock_response.content = [
         {"type": "text", "text": "This is the real answer.",
             "extras": {"signature": "abc123"}}
     ]
     mock_llm.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
 
     result = answer_question("Some question")
 

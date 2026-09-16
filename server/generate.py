@@ -7,17 +7,23 @@ from langchain_chroma import Chroma
 
 load_dotenv()
 
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+# Created on call, not on import, so tests can run without a real API key
 
-vectorstore = Chroma(
-    persist_directory="chroma_db",
-    embedding_function=embeddings,
-)
 
-llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash")
+def get_vectorstore():
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-001")
+    return Chroma(persist_directory="chroma_db", embedding_function=embeddings)
+
+
+def get_llm():
+    return ChatGoogleGenerativeAI(model="gemini-3.6-flash")
 
 
 def answer_question(question):
+    vectorstore = get_vectorstore()
+    llm = get_llm()
+
     # Retrieves the most relevant chunks for this specific question
     results = vectorstore.similarity_search(question, k=3)
 
